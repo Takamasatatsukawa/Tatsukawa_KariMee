@@ -1,0 +1,26 @@
+<!-- app/views/users/registrations/index.html.erb -->
+<h1>登録者一覧</h1>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>氏名</th>
+      <th>連絡先</th>
+      <th>保有免許</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @users.each do |user| %>
+      <tr>
+        <td><%= user.name %></td>
+        <td><%= user.contact_information %></td>
+        <td>
+          <%= "網猟免許 " if user.net_hunting_license %>
+          <%= "わな猟免許 " if user.trap_hunting_license %>
+          <%= "第一種猟銃免許 " if user.first_class_hunting_license %>
+          <%= "第二種猟銃免許 " if user.second_class_hunting_license %>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

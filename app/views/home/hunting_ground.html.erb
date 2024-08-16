@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>猟場MAP</title>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCA-vRsupZ3bq3ts8IibdEPp2TnJSCm094&callback=initMap"></script>
+    <script>
+      function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 10,
+          center: { lat: 32.9736, lng: 131.5856 } // 豊後大野市の中心付近に設定
+        });
+
+        // 豊後大野市の境界を示すGeoJSONデータのURLを指定
+        map.data.loadGeoJson('/city.json');
+
+        // 境界線のスタイルを設定
+        map.data.setStyle({
+          strokeColor: '#FF0000', // 境界線の色
+          strokeWeight: 2
+        });
+
+      // 自己位置を表示するための処理
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(showPosition, showError);
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
+
+      function showPosition(position) {
+        var userLat = position.coords.latitude;
+        var userLng = position.coords.longitude;
+        var userPosition = new google.maps.LatLng(userLat, userLng);
+
+        // 地図をユーザーの位置に移動
+        map.setCenter(userPosition);
+        map.setZoom(15);
+
+        // ユーザーの位置にマーカーを設定
+        new google.maps.Marker({
+          position: userPosition,
+          map: map,
+          title: "Your location"
+        });
+      }
+
+      function showError(error) {
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            alert("User denied the request for Geolocation.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            alert("Location information is unavailable.");
+            break;
+          case error.TIMEOUT:
+            alert("The request to get user location timed out.");
+            break;
+          case error.UNKNOWN_ERROR:
+            alert("An unknown error occurred.");
+            break;
+        }
+      }
+      }
+    </script>
+  </head>
+  <body>
+    <h1>猟場MAP</h1>
+    <div id="map" style="height: 500px; width: 100%;"></div>
+  </body>
+</html>

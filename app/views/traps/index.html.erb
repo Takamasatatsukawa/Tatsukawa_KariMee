@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Map with Traps</title>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCA-vRsupZ3bq3ts8IibdEPp2TnJSCm094&callback=initMap"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script>
+      var map;
+      var traps = [];
+      var infoWindow;
+
+      function initMap() {
+        // ユーザーの現在位置を取得
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(function(position) {
+            var userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+
+            if (!map) {
+              map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 12,
+                center: userLocation // ユーザーの現在位置をマップの中心に設定
+              });
+            }
+
+            infoWindow = new google.maps.InfoWindow();
+
+            // マップをクリックしたときにフォームを表示して、トラップを追加
+            if (!map.hasListener) {
+              map.addListener('click', function(event) {
+                showTrapForm(event.latLng); 
+              });
+              map.hasListener = true; // フラグを設定
+            }
+
+            // 既存のトラップを読み込む
+            loadTraps();
+
+          }, function() {
+            handleLocationError(true, infoWindow, map.getCenter());
+          });
+        } else {
+          // Geolocationが使用できない場合のエラー処理
+          handleLocationError(false, infoWindow, map.getCenter());
+        }
+      }
+
+      function handleLocationError(browserHasGeolocation, infoWindow, pos) {
+        infoWindow.setPosition(pos);
+        infoWindow.setContent(browserHasGeolocation ?
+                              'Error: The Geolocation service failed.' :
+                              'Error: Your browser doesn\'t support geolocation.');
+        infoWindow.open(map);
+      }
+
+      function showTrapForm(location) {
+        console.log("showTrapFormが呼び出されました");
+        $('#trap-dialog').remove();
+        $('#saveTrap').off('click');
+
+        var formHtml = `
+          <div>
+            <label for="trapType">罠の種類を選択してください:</label><br>
+            <select id="trapType">
+              <option value="箱罠">箱罠</option>
+              <option value="くくり罠">くくり罠</option>
+            </select><br><br>
+
+            <label for="startDate">設置開始日を選択してください:</label><br>
+            <input type="text" id="startDate"><br><br>
+
+            <label for="endDate">設置終了日を選択してください:</label><br>
+            <input type="text" id="endDate"><br><br>
+
+            <button id="saveTrap">罠を設置する</button>
+          </div>
+        `;
+
+        var $dialog = $(formHtml).dialog({
+          modal: true,
+          title: "罠の設定",
+          open: function() {
+            $("#startDate, #endDate").datepicker({ dateFormat: 'yy-mm-dd', showOn: 'both', buttonText: 'カレンダーを表示'}); 
+          },
+          buttons: {
+            "保存": function() {
+              var trapType = $('#trapType').val();
+              var startDate = $('#startDate').val();
+              var endDate = $('#endDate').val();
+
+              $(this).prop('disabled', true);
+              var $button = $(this);
+              $button.prop('disabled', true);
+
+              // サーバーに保存してからマーカーを追加
+              saveTrap(location.lat(), location.lng(), trapType, startDate, endDate)
+                .then(data => {
+                  console.log('Received data in saveTrap:', data); // ここでレスポンスデータを確認する
+                  if (!data || !data.id) {
+                    throw new Error('Invalid data received from server');
+                  }
+                // サーバーから返されるトラップのID
+                const trapId = data.id;
+
+                // ユーザーの情報
+                const userName = data.user ? data.user.name : "Unknown";
+                const contactInformation = data.user ? data.user.contact_information : "No contact info";
+                
+                addTrap(location, trapType, startDate, endDate, trapId, userName, contactInformation);
+                })
+                .catch(error => {
+                  console.error('保存中に問題が発生しました:', error);
+                  alert('保存中に問題が発生しました: ' + error.message);
+                })
+                .finally(() => {
+                  console.log("非同期処理が完了しました - ダイアログを閉じます");
+                  $dialog.dialog("close"); // ダイアログを閉じる
+                  $dialog.remove(); // ダイアログを破棄して完全に削除
+                  console.log("ダイアログは正常に閉じられました");
+                });
+            },
+            "キャンセル": function() {
+              $dialog.dialog("close"); // キャンセル時にもダイアログを閉じる
+              $dialog.dialog("destroy").remove(); // ダイアログを完全に削除
+            }
+          }
+        });
+        $('#saveTrap').off('click');
+      }
+
+      async function addTrap(location, trapType, startDate, endDate, trapId, userName, contactInformation) {
+        try {
+          var trap = new google.maps.Marker({
+            position: location,
+            map: map,
+            icon: '/images/罠.png' // トラップを示すカスタムアイコンを設定
+          });
+          traps.push({ id: trapId, marker: trap });
+
+          trap.addListener('click', function() {
+            showTrapInfo(trap, trapId, trapType, startDate, endDate, userName);
+          });
+        } catch (error) {
+          console.error('マーカーの追加中に異常が発生しました:', error);
+        }
+      }
+
+      function showTrapInfo(trap, trapId, trapType, startDate, endDate, userName, contactInformation) {
+        var lat = trap.getPosition().lat();
+        var lng = trap.getPosition().lng();
+        
+        var contentString = `
+          <div>
+            <strong>トラップの位置</strong><br>
+            設置者: ${userName}<br>
+            連絡先: ${contactInformation}<br>
+            緯度: ${lat}<br>
+            経度: ${lng}<br>
+            罠の種類: ${trapType}<br>
+            設置期間: ${startDate} から ${endDate}<br><br>
+            <button id="deleteTrap">罠を削除する</button>
+          </div>
+        `;
+
+        infoWindow.setContent(contentString);
+        infoWindow.open(map, trap);
+
+        google.maps.event.addListenerOnce(infoWindow, 'domready', function() {
+          document.getElementById("deleteTrap").addEventListener("click", function() {
+            deleteTrap(trap, trapId);
+          });
+        });
+      }
+
+      function deleteTrap(trap, trapId) {
+        console.log("Deleting Trap ID:", trapId);
+        if (confirm("このトラップを削除しますか？")) {
+          fetch(`/traps/${trapId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+          })
+          .then(response => {
+            console.log("レスポンスステータス:", response.status);
+            if (!response.ok) {
+              return response.json().then(errorData => {
+                throw new Error('Network response was not ok');
+              });
+            }
+            if (response.status === 204) {
+              console.log("削除が成功しましたが、レスポンスにはボディがありません。");
+              google.maps.event.clearInstanceListeners(trap);
+              trap.setMap(null); // ここでマーカーを削除
+              location.reload(); // ページの完全リロード
+              traps = traps.filter(t => t.marker !== trap); // 配列からも削除
+              alert("トラップが削除されました。");
+              return; // 204の場合、ここで処理を終了
+            }
+            google.maps.event.clearInstanceListeners(trap);
+            trap.setMap(null);
+            traps = traps.filter(t => t.marker !== trap);
+            alert("トラップが削除されました。");
+          })
+          .catch(error => {
+            console.error('There was a problem with the delete operation:', error);
+            alert(`削除に失敗しました: ${error.message}`);
+          });
+        }
+      }
+
+      function loadTraps() {
+        fetch('/trap_informations')
+          .then(response => {
+            console.log(response);
+            if (response.headers.get('content-type')?.includes('application/json')) {
+              return response.json();
+            } else {
+              throw new Error('Invalid JSON response');
+            }
+          })
+          .then(data => {
+      console.log('Traps data:', data);
+      data.forEach(trapData => {
+        if (!trapData.user || !trapData.user.name) {
+          console.error('User data is missing for trap:', trapData);
+        } else {
+          const location = new google.maps.LatLng(trapData.lat, trapData.lng);
+          const trapId = trapData.id;
+          const trapType = trapData.trap_type;
+          const startDate = trapData.start_date;
+          const endDate = trapData.end_date;
+          const userName = trapData.user.name;
+          const contactInformation = trapData.user.contact_information;
+
+          addTrap(location, trapType, startDate, endDate, trapId, userName, contactInformation);
+        }
+      });
+    })
+    .catch(error => {
+      console.error('There was a problem with loading traps:', error);
+    });
+}
+      
+      async function addTrap(location, trapType, startDate, endDate, trapId, userName, contactInformation) {
+        try {
+          var trap = new google.maps.Marker({
+            position: location,
+            map: map,
+            icon: '/images/罠.png'
+          });
+          traps.push({ id: trapId, marker: trap });
+      
+          trap.addListener('click', function() {
+            showTrapInfo(trap, trapId, trapType, startDate, endDate, userName, contactInformation);
+          });
+        } catch (error) {
+          console.error('マーカーの追加中に異常が発生しました:', error);
+        }
+      }
+     
+      function saveTrap(lat, lng, trapType, startDate, endDate, userName) {
+        return fetch('/traps', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+          },
+          body: JSON.stringify({ lat: lat, lng: lng, trap_type: trapType, start_date: startDate, end_date: endDate })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Received data in saveTrap:', data); // レスポンスデータを確認する
+          if (!data || !data.id) {
+            throw new Error('Invalid data received from server');
+          }
+      
+          const trapId = data.id;
+          const userName = data.user ? data.user.name : "Unknown";
+          const contactInformation = data.user ? data.user.contact_information : "No contact info";
+          
+          // 保存後、マーカーを地図に追加する
+          addTrap({ lat: lat, lng: lng }, trapType, startDate, endDate, trapId, userName, contactInformation);
+        })
+        .catch(error => {
+          console.error('保存中に問題が発生しました:', error);
+          alert('保存中に問題が発生しました: ' + error.message);
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", function() {
+        initMap();
+        loadTraps();
+      });
+    
+    </script>
+  </head>
+  <body>
+    <h1>罠情報</h1>
+    <div id="map" style="height: 500px; width: 90%;"></div>
+  </body>
+  </html>

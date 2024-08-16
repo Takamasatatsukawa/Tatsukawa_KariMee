@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>KariMee</title>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+
+  <%= stylesheet_link_tag 'application', media: 'all', 'data-turbo-track': 'reload' %>
+  <%= javascript_importmap_tags %>
+</head>
+
+<body>
+  <header>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <a class="navbar-brand" href="#"><%= image_tag 'logo2.png', alt: 'KariMee', class: 'logo-img' %></a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item <%= 'active' if current_page?(root_path) %>">
+            <%= link_to 'Home', root_path, class: 'nav-link' %>
+          </li>
+          <% if user_signed_in? %>
+          <li class="nav-item <%= 'active' if current_page?(hunting_map_path) %>">
+            <%= link_to '狩場MAP', hunting_map_path, class: 'nav-link' %>
+          </li>
+          <li class="nav-item <%= 'active' if current_page?(trap_info_path) %>">
+            <%= link_to '罠情報', trap_info_path, class: 'nav-link' %>
+          </li>
+          <li class="nav-item">
+            <%= link_to '登録者一覧', user_list_path, class: 'nav-link' %>
+          </li>
+            <li class="nav-item">
+              <%= button_to 'ログアウト', destroy_user_session_path, method: :delete, class: 'btn btn-link nav-link' %>
+            </li>
+          <% else %>
+            <li class="nav-item">
+              <%= link_to 'ログイン', new_user_session_path, class: 'nav-link' %>
+            </li>
+            <li class="nav-item">
+              <%= link_to '新規登録', new_user_registration_path, class: 'nav-link' %>
+            </li>
+          <% end %>
+        </ul>
+        <form class="form-inline d-flex my-2 my-lg-0">
+          <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
+          <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+        </form>
+      </div>
+    </nav>
+  </header>
+
+  <%= yield %>
+
+  <footer>
+    <p>&copy; 2024 KariMee</p>
+  </footer>
+</body>
+</html>
