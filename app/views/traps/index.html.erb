@@ -101,6 +101,7 @@
               saveTrap(location.lat(), location.lng(), trapType, startDate, endDate)
                 .then(data => {
                   console.log('Received data in saveTrap:', data); // ここでレスポンスデータを確認する
+
                   if (!data || !data.id) {
                     throw new Error('Invalid data received from server');
                   }
@@ -115,7 +116,7 @@
                 })
                 .catch(error => {
                   console.error('保存中に問題が発生しました:', error);
-                  alert('保存中に問題が発生しました: ' + error.message);
+                 // alert('保存中に問題が発生しました: ' + error.message);
                 })
                 .finally(() => {
                   console.log("非同期処理が完了しました - ダイアログを閉じます");
@@ -295,7 +296,7 @@
         })
         .catch(error => {
           console.error('保存中に問題が発生しました:', error);
-          alert('保存中に問題が発生しました: ' + error.message);
+           alert('保存中に問題が発生しました: ' + error.message);
         });
       }
 
